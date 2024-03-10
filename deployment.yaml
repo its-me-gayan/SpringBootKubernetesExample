@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment # Kubernetes resource kind we are creating
+metadata:
+  name: spring-boot-kube-sample
+spec:
+  selector:
+    matchLabels:
+      app: spring-boot-kube-sample
+  replicas: 2 # Number of replicas that will be created for this deployment
+  template:
+    metadata:
+      labels:
+        app: spring-boot-kube-sample
+    spec:
+      containers:
+        - name: spring-boot-kube-sample
+          image: springbootkubernetessample:1.0.0
+          # Image that will be used to containers in the cluster
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8181
+          resources:
+            limits:
+              memory: 500Mi
+              cpu: 1
+            requests:
+              memory: 500Mi
+              cpu: 1
+# The port that the container is running on in the cluster
+---
+apiVersion: v1 # Kubernetes API version
+kind: Service # Kubernetes resource kind we are creating
+metadata: # Metadata of the resource kind we are creating
+  name: spring-boot-kube-sample-svc
+spec:
+  selector:
+    app: spring-boot-kube-sample
+  ports:
+    - protocol: "TCP"
+      port: 8181 # The port that the service is running on in the cluster
+      targetPort: 8181 # The port exposed by the service
+  type: LoadBalancer # type of the service.
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: spring-boot-kube-sample-ingress
+spec:
+  rules:
+    - host: spring.sample.local
+      http:
+        paths:
+          - backend:
+              service:
+                name: spring-boot-kube-sample-svc
+                port:
+                  number: 8181
+            path: /
+            pathType: Prefix
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: spring-boot-kube-sample-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: spring-boot-kube-sample
+  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
